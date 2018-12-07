@@ -1,6 +1,8 @@
 package edu.temple.stockfinalproject;
 
 import android.content.DialogInterface;
+import android.os.Handler;
+import android.os.Message;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -13,7 +15,11 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
+import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
@@ -30,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
         Fab=findViewById(R.id.FAB);
         Welcome=findViewById(R.id.textView);
         Portfolio=findViewById(R.id.listView);
-        StockAdapter2 adapter = new StockAdapter2(MainActivity.this,android.R.layout.simple_list_item_1,Stocks);
+        final StockAdapter2 adapter = new StockAdapter2(MainActivity.this,android.R.layout.simple_list_item_1,Stocks);
         Portfolio.setAdapter(adapter);
         Fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -49,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
                         Welcome.setText("");
                         //adapter.notifyDataSetChanged();
                         /*
+
                         JSON Parsed
                         If Successful-> Check if stock price is >= Opening
                             If yes -> Green
@@ -56,10 +63,44 @@ public class MainActivity extends AppCompatActivity {
 
 
                          */
-
+                        adapter.notifyDataSetChanged();
                         Log.i("ADD","Plus one for the Arraylist");
                         //Check the Status before Adding to the Array List!!
+                        Thread t = new Thread() {
+                            @Override
+                            public void run() {
 
+                                URL stockQuoteUrl;
+
+                                try {
+
+                                    //stockQuoteUrl = new URL("http://finance.yahoo.com/webservice/v1/symbols/" + stockSymbol + "/quote?format=json");
+                                    stockQuoteUrl = new URL("http://dev.markitondemand.com/MODApis/Api/v2/Quote/json?symbol="+Symbol);
+
+                                    BufferedReader reader = new BufferedReader(
+                                            new InputStreamReader(
+                                                    stockQuoteUrl.openStream()));
+
+                                    String response = "", tmpResponse;
+
+                                    tmpResponse = reader.readLine();
+                                    while (tmpResponse != null) {
+                                        Log.i("READING", "READING INPUT");
+                                        response = response + tmpResponse;
+                                        tmpResponse = reader.readLine();
+                                    }
+
+                                    JSONObject stockObject = new JSONObject(response);
+                                    Message msg = Message.obtain();
+                                    msg.obj = stockObject;
+                                    stockResponseHandler.sendMessage(msg);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                    Log.i("ERROR","No stock found");
+                                }
+                            }
+                        };
+                        t.start();
 
                     }
                 });
@@ -73,5 +114,31 @@ public class MainActivity extends AppCompatActivity {
                 builder.show();
             }
         });
+
+
     }
+
+
+    Handler stockResponseHandler = new Handler(new Handler.Callback() {
+
+        @Override
+        public boolean handleMessage(Message msg) {
+
+            JSONObject responseObject = (JSONObject) msg.obj;
+
+            try {
+                Stock stock = new Stock(responseObject);
+
+                        Log.i("SYMBOL",stock.getSymbol());
+                        Log.i("NAME",stock.getName());
+                       // Log.i("PRICE", (String)stock.getPrice());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
+            return false;
+        }
+    });
 }
+
